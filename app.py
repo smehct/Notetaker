@@ -83,6 +83,9 @@ class SessionRow(ctk.CTkFrame):
         if not self.selected:
             self.configure(fg_color="transparent")
 
+    def set_title(self, title):
+        self.title_label.configure(text=title if len(title) <= 26 else title[:25] + "…")
+
     def set_selected(self, selected):
         self.selected = selected
         self.configure(fg_color=SEL if selected else "transparent")
@@ -108,6 +111,7 @@ class App(ctk.CTk):
         self.settings_open = False
         self.name_colors = {}
         self._closing = False
+        self._title_job = None
 
         self._build()
         self.refresh_sessions()
@@ -130,14 +134,15 @@ class App(ctk.CTk):
         main.grid_rowconfigure(4, weight=1)
 
         # Titel
-        self.title_var = ctk.StringVar()
+        # Kein textvariable: customtkinter zeigt den Platzhalter sonst nicht an.
         self.title_entry = ctk.CTkEntry(
-            main, textvariable=self.title_var, placeholder_text="Titel des Meetings", height=52,
-            border_width=0, fg_color="transparent", text_color=INK,
-            placeholder_text_color=FAINT, font=font(32, "bold", SERIF))
-        self.title_entry.grid(row=0, column=0, sticky="ew")
-        self.title_entry.bind("<Return>", lambda e: (self.commit_title(), self.focus()))
-        self.title_entry.bind("<FocusOut>", lambda e: self.commit_title())
+            main, placeholder_text="Titel des Meetings eintragen", height=48, corner_radius=16,
+            border_width=1, border_color=LINE, fg_color=WHITE, text_color=INK,
+            placeholder_text_color=FAINT, font=font(20, "bold", SERIF))
+        self.title_entry.grid(row=0, column=0, sticky="ew", pady=(0, 4))
+        self.title_entry.bind("<KeyRelease>", lambda e: self._schedule_title_commit())
+        self.title_entry.bind("<Return>", lambda e: (self._flush_title(), self.focus()))
+        self.title_entry.bind("<FocusOut>", lambda e: self._flush_title())
         self.subtitle = ctk.CTkLabel(main, text="", anchor="w", text_color=MUTED, font=font(12))
         self.subtitle.grid(row=1, column=0, sticky="w", padx=(6, 0), pady=(0, 14))
 
@@ -437,24 +442,47 @@ class App(ctk.CTk):
         elif self.selected not in self.rows:
             self.selected = None
 
+    def _get_title(self):
+        return self.title_entry.get().strip()
+
+    def _set_title_text(self, text):
+        self.title_entry.delete(0, "end")
+        if text:
+            self.title_entry.insert(0, text)
+
+    def _schedule_title_commit(self):
+        """Speichert den Titel kurz nach der letzten Eingabe. Fokus-Wechsel allein
+        genügt nicht, ein Klick auf die Seitenleiste nimmt dem Feld den Fokus nicht."""
+        if self._title_job:
+            self.after_cancel(self._title_job)
+        self._title_job = self.after(500, self.commit_title)
+
+    def _flush_title(self):
+        if self._title_job:
+            self.after_cancel(self._title_job)
+        self.commit_title()
+
     def commit_title(self):
+        self._title_job = None
         if self._closing:
             return
         target = self.recorder.session_dir if self.recorder else self.selected
         if not target:
             return
-        title = self.title_var.get().strip()
+        title = self._get_title()
         if title != notetaker.get_title(target):
             notetaker.set_title(target, title)
-            self.refresh_sessions()
+            if target in self.rows:
+                self.rows[target].set_title(title or "Ohne Titel")
 
     def new_session(self):
         """Leerer Ausgangszustand: Titel eintragen und Aufnahme starten."""
         if self.recorder or self.busy:
             return
+        self._flush_title()
         self.selected = None
-        self.title_var.set("")
-        self.subtitle.configure(text="Neue Aufnahme")
+        self._set_title_text("")
+        self.subtitle.configure(text="Neue Aufnahme  ·  Titel oben eintragen (optional)")
         for row in self.rows.values():
             row.set_selected(False)
         self._show_hint("Gib oben einen Titel ein und starte die Aufnahme.\n"
@@ -465,8 +493,9 @@ class App(ctk.CTk):
     def select_session(self, d):
         if self.recorder or self.busy:
             return
+        self._flush_title()
         self.selected = d
-        self.title_var.set(notetaker.get_title(d))
+        self._set_title_text(notetaker.get_title(d))
         self.subtitle.configure(text=self._session_meta(d))
         for path, row in self.rows.items():
             row.set_selected(path == d)
@@ -508,7 +537,7 @@ class App(ctk.CTk):
     def start_recording(self):
         if self.selected:
             self.new_session()
-        title = self.title_var.get().strip()
+        title = self._get_title()
         try:
             self.recorder = notetaker.Recorder(with_system=MODES[self.mode_var.get()])
         except Exception as e:
@@ -699,7 +728,7 @@ class App(ctk.CTk):
         self._closing = True
         if self.recorder:
             rec, self.recorder = self.recorder, None
-            notetaker.set_title(rec.session_dir, self.title_var.get())
+            notetaker.set_title(rec.session_dir, self._get_title())
             rec.stop()
         self.destroy()
 
