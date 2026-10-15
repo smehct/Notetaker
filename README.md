@@ -22,8 +22,8 @@ winget install Python.Python.3.12
 Dann:
 
 ```
-git clone https://github.com/<benutzer>/notetaker.git
-cd notetaker
+git clone https://github.com/smehct/Notetaker.git
+cd Notetaker
 install.bat
 ```
 
