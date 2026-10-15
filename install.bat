@@ -6,6 +6,9 @@ set "PY="
 py -3.12 --version >nul 2>&1 && set "PY=py -3.12"
 if not defined PY py -3 --version >nul 2>&1 && set "PY=py -3"
 if not defined PY python --version >nul 2>&1 && set "PY=python"
+rem Python von winget liegt im Benutzerordner und steht in einer alten Konsole nicht im Suchpfad
+if not defined PY if exist "%LOCALAPPDATA%\Programs\Python\Python312\python.exe" set PY="%LOCALAPPDATA%\Programs\Python\Python312\python.exe"
+if not defined PY if exist "%ProgramFiles%\Python312\python.exe" set PY="%ProgramFiles%\Python312\python.exe"
 if not defined PY (
     echo Python wurde nicht gefunden. Bitte Python 3.12 installieren:
     echo     winget install Python.Python.3.12
