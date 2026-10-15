@@ -67,4 +67,4 @@ Es werden keine Daten an Dritte gesendet. Trotzdem gilt: Gespräche nur mit Wiss
 
 Dieses Projekt ist unabhängig und steht in keiner Verbindung zu Wispr.
 
-Eine Lizenz für den Code dieses Repositorys ist noch nicht festgelegt.
+Der Code steht unter der MIT-Lizenz (siehe `LICENSE`). Das gilt nicht für die heruntergeladenen Modelle und die installierten Pakete.
